@@ -107,10 +107,6 @@ h1, h2 {
   width: 1020px;
 }
 
-#state-chart {
-  width: 560px;
-}
-
 #date-chart {
   width: 920px;
 }
@@ -202,10 +198,6 @@ aside {
     <div class="title">Total Price ($)</div>
   </div>
   </br>
-    <div id="state-chart" class="chart">
-      <div class="title">States</div>
-    </div>
-  </br>
   <div id="date-chart" class="chart">
     <div class="title">Date</div>
   </div>
@@ -272,22 +264,10 @@ d3.csv("all_prices_map.csv", function(error, sales) {
       amount = sale.dimension(function(d) { return Math.min(d.amount,.99); }),
       amounts = amount.group(function(d) { return Math.floor(d*10)/10; }),
       state = sale.dimension(function(d) { return d.state_code; }),
-      states = state.group(function(d) { return d }),
-      stateAvg = state.group(),
-      counts = stateAvg.reduceCount().all(),
-      countByType = {};
-      Array.prototype.slice.call(counts).forEach(function(d) { states[d.key] = d.value; })
-      var stateAvg = stateAvg.reduceSum(function(d, i) { 
-          return d.ppo / states[d.state_code];
-      console.log(countByType);
-
-
-      // it's dividing a correct sum by a total count with no filter
+      states = state.group(),
+      statesCount = states.reduceCount(),
+      ppoSum = state.group().reduceSum(function(d) { return d.ppo; });
       
-  
-//        return d.ppo;
-  });
-  
   var charts = [
 
     barChart()
@@ -319,13 +299,6 @@ d3.csv("all_prices_map.csv", function(error, sales) {
         .rangeRound([0, 10 * 80])),
 
     barChart()
-        .dimension(state)
-        .group(stateAvg)
-      .x(d3.scale.linear()
-        .domain([0, 50])
-        .rangeRound([0, 10 * 50])),
-
-    barChart()
         .dimension(date)
         .group(dates)
       .x(d3.time.scale()
@@ -334,7 +307,8 @@ d3.csv("all_prices_map.csv", function(error, sales) {
         .filter([new Date(2013, 0, 1), new Date(2013, 4, 1)]),
 
     stateMap()
-        .group(stateAvg)
+        .group(states)
+        .group(statesCount)
   
   ];
   
@@ -647,23 +621,44 @@ d3.csv("all_prices_map.csv", function(error, sales) {
           var svg = div.append("svg")
               .attr("width", width)
               .attr("height", height);
-          
-          console.log("empty!")
-              
+
         } else {
+
           var svg = div.select("svg")
-          console.log("occupied!")
+
         }
+        
+        var arr = []
+        max_val = 0;
+        min_val = 1000;
+        
+        var ppoAvg = statesCount.all().forEach( function(d, i) { 
+          var sums = ppoSum.all()
+          
+          obj = {};
+          obj.key = d.key;
+          
+          obj.value = (sums[i].value/Math.max(d.value,1));
+          
+          if (obj.value > max_val) {
+            max_val = obj.value
+          }
+          
+          if (obj.value < min_val) {
+            min_val = obj.value
+          }
+          
+          arr.push(obj);
+        });
         
         var path = d3.geo.path();
         
-        var highState = stateAvg.top(1)[0].value;
-        var lowState = stateAvg.top(51)[50].value;
+        var highState = max_val;
+        var lowState = min_val;
         
         var rateById = d3.map();
         
-        stateAvg.top(51).forEach(function(state) { rateById.set(+state.key,+state.value); })
-        //statesAvg.top(51).forEach(function(state) { rateById.set(+state.key,state.value); })
+        arr.forEach(function(state) { rateById.set(+state.key,+state.value); })
         
         var quantize = d3.scale.quantize()
             .domain([lowState, highState])
@@ -687,8 +682,6 @@ d3.csv("all_prices_map.csv", function(error, sales) {
         //      .attr("class", "states")
         //      .attr("d", path);
         };
-        console.log(stateAvg.top(51)[0]);
-        console.log(stateAvg.top(51));
       });
     };
     
