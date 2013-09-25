@@ -178,6 +178,35 @@ aside {
 .q7-9 { fill:#445516; }
 .q8-9 { fill:#22290B; }
 
+.d3-tip {
+  line-height: 1.5;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 0px;
+  text-align: center;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+
 </style>
 
 <div id="body">
@@ -210,6 +239,8 @@ aside {
 
 <div id="lists">
   <div id="sale-list" class="list"></div>
+  <div id="sale-list" class="list"></div>
+  </div>
 </div>
 
 <footer>
@@ -224,6 +255,7 @@ aside {
 
 <script src="crossfilter.v1.min.js"></script>
 <script src="d3.v3.min.js"></script>
+<script src="d3.tip.min.js"></script>
 <script src="http://d3js.org/queue.v1.min.js"></script>
 <script src="http://d3js.org/topojson.v1.min.js"></script>
 
@@ -231,7 +263,7 @@ aside {
 
 // (It's CSV, but GitHub Pages only gzip's JSON at the moment.)
 d3.csv("all_prices_map.csv", function(error, sales) {  
-  
+d3.csv("state_codes.csv", function(error, codes) { 
   // Various formatters.
   var formatNumber = d3.format(",d"),
       formatChange = d3.format("+,d"),
@@ -241,7 +273,7 @@ d3.csv("all_prices_map.csv", function(error, sales) {
   // A nest operator, for grouping the sale list.
   var nestByDate = d3.nest()
       .key(function(d) { return d3.time.day(d.date); });
-
+      
   // A little coercion, since the CSV is untyped.
   sales.forEach(function(d, i) {
     d.index = i;
@@ -255,8 +287,8 @@ d3.csv("all_prices_map.csv", function(error, sales) {
       all = sale.groupAll(),
       date = sale.dimension(function(d) { return d.date; }),
       dates = date.group(d3.time.week),
-      rank = sale.dimension(function(d) { return d.quality_score; }),
-      ranks = rank.group(function(d) {return d}),
+      qual = sale.dimension(function(d) { return d.quality_score; }),
+      quals = qual.group(function(d) {return d}),
       ppo = sale.dimension(function(d) { return Math.min(d.ppo,590); }),
       ppos = ppo.group(function(d) { return Math.round(Math.floor(d/10))*10; }),
       price = sale.dimension(function(d) { return Math.min(d.price,395); }),
@@ -271,8 +303,8 @@ d3.csv("all_prices_map.csv", function(error, sales) {
   var charts = [
 
     barChart()
-        .dimension(rank)
-        .group(ranks)
+        .dimension(qual)
+        .group(quals)
       .x(d3.scale.linear()
         .domain([1, 4])
         .rangeRound([0, 30 * 3])),
@@ -307,8 +339,6 @@ d3.csv("all_prices_map.csv", function(error, sales) {
         .filter([new Date(2013, 0, 1), new Date(2013, 4, 1)]),
 
     stateMap()
-        .group(states)
-        .group(statesCount)
   
   ];
   
@@ -337,7 +367,6 @@ d3.csv("all_prices_map.csv", function(error, sales) {
   // Whenever the brush moves, re-rendering everything.
   function renderAll() {
     chart.each(render);
-  //  chart.each(function(c) { console.log(c); });
     list.each(render);
     d3.select("#active").text(formatNumber(all.value()));
   }
@@ -664,24 +693,37 @@ d3.csv("all_prices_map.csv", function(error, sales) {
           arr.push(obj);
         });
         
-        var highState = max_val;
+        var highState = Math.min(max_val,600);
         var lowState = min_val;
         
-        console.log(max_val);
-        console.log(min_val);
+        var tip = d3.tip()
+          .attr('class', 'd3-tip')
+          .offset([-10, 0])
+          .html(function(d) {
+            return nameById.get(+d.id) + "</br>Sales: " + countById.get(+d.id) + "</br>Price per ounce: $" + Math.round(rateById.get(+d.id));
+          })
+          .direction('n')
         
         var rateById = d3.map();
+        var countById = d3.map();
+        var nameById = d3.map();
         
         arr.forEach(function(state) { rateById.set(+state.key,+state.value); })
+        statesCount.all().forEach(function(state) { countById.set(+state.key,+state.value)})
+        codes.forEach(function(state) { nameById.set(+state.key,state.value)})
         
         var quantize = d3.scale.quantize()
             .domain([lowState, highState])
             .range(d3.range(9).map(function(i) { return "q" + i + "-9"; }));
         
+        svg.call(tip);
+        
         var s = svg.select("g")
                   .selectAll("path")
                   .attr("id",function(d) {return +d.id; })
                   .attr("class", function(d) { return quantize(rateById.get(+d.id)); })
+                  .on('mouseover', tip.show)
+                  .on('mouseout', tip.hide);
           
        //  function ready(error, us) {
        //  svg.append("g")
@@ -703,15 +745,9 @@ d3.csv("all_prices_map.csv", function(error, sales) {
       });
     };
     
-    aMap.group = function(_) {
-      if (!arguments.length) return group;
-      group = _;
-      return aMap;
-    };
-    
     return d3.rebind(aMap, d3.svg.brush(), "on");
   
   };
-  
+});  
 });
 </script>
