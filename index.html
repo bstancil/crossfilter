@@ -178,6 +178,16 @@ aside {
 .q7-9 { fill:#445516; }
 .q8-9 { fill:#22290B; }
 
+.q0-9:hover { fill:#DD5426; }
+.q1-9:hover { fill:#DD5426; }
+.q2-9:hover { fill:#DD5426; }
+.q3-9:hover { fill:#DD5426; }
+.q4-9:hover { fill:#DD5426; }
+.q5-9:hover { fill:#DD5426; }
+.q6-9:hover { fill:#DD5426; }
+.q7-9:hover { fill:#DD5426; }
+.q8-9:hover { fill:#DD5426; }
+
 .d3-tip {
   line-height: 1.5;
   padding: 8px;
@@ -298,7 +308,7 @@ d3.csv("state_codes.csv", function(error, codes) {
       state = sale.dimension(function(d) { return d.state_code; }),
       states = state.group(),
       statesCount = states.reduceCount(),
-      ppoSum = state.group().reduceSum(function(d) { return d.ppo; });
+      ppoSum = state.group().reduceSum(function(d) { return Math.min(d.ppo,600); });
       
   var charts = [
 
